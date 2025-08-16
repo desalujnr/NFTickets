@@ -59,3 +59,67 @@
 
 ;; NFT Definition
 (define-non-fungible-token nf-ticket uint)
+
+;; Private Functions
+
+;; Check if ticket has expired
+(define-private (is-ticket-expired (ticket-id uint))
+  (let ((ticket-data (unwrap! (map-get? tickets ticket-id) false)))
+    (> block-height (get expiration-date ticket-data))
+  )
+)
+
+;; Check if transfer is allowed based on event settings
+(define-private (is-transfer-allowed (ticket-id uint) (from principal) (to principal))
+  (let (
+    (ticket-data (unwrap! (map-get? tickets ticket-id) false))
+    (event-data (unwrap! (map-get? events (get event-id ticket-data)) false))
+  )
+    (and
+      (not (is-ticket-expired ticket-id))
+      (not (get is-used ticket-data))
+      (or 
+        (get resale-allowed event-data)
+        (is-eq from (get organizer event-data))
+        (is-eq to (get original-buyer ticket-data))
+      )
+    )
+  )
+)
+
+;; Read-only Functions
+
+;; Get last token ID
+(define-read-only (get-last-token-id)
+  (var-get last-token-id)
+)
+
+;; Get token URI
+(define-read-only (get-token-uri (token-id uint))
+  (map-get? token-uris token-id)
+)
+
+;; Get token owner
+(define-read-only (get-owner (token-id uint))
+  (ok (nft-get-owner? nf-ticket token-id))
+)
+
+;; Get contract URI
+(define-read-only (get-contract-uri)
+  (ok (var-get contract-uri))
+)
+
+;; Get ticket details
+(define-read-only (get-ticket-details (ticket-id uint))
+  (map-get? tickets ticket-id)
+)
+
+;; Get event details
+(define-read-only (get-event-details (event-id uint))
+  (map-get? events event-id)
+)
+
+;; Check if user is authorized organizer
+(define-read-only (is-authorized-organizer (organizer principal))
+  (default-to false (map-get? event-organizers organizer))
+)
